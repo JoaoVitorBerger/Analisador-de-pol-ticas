@@ -1,0 +1,11 @@
+{
+    "name": "guardiao-proxy",
+    "version": "1.0.0",
+    "type": "module",
+    "main": "server.js",
+    "dependencies": {
+        "dotenv": "^17.2.2",
+        "express": "^4.18.2",
+        "openai": "^4.0.0"
+    }
+}
