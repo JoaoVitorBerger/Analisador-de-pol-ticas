@@ -1,0 +1,10 @@
+{
+  "manifest_version": 3,
+  "name": "Analisador de Políticas",
+  "version": "1.0",
+  "permissions": ["activeTab", "scripting"],
+  "host_permissions": ["http://localhost:3000/*"],
+  "action": {
+    "default_popup": "popup.html"
+  }
+}
