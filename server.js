@@ -1,9 +1,8 @@
+// server.js
 import express from "express";
 import dotenv from "dotenv";
 import cors from "cors";
-
-// Se estiver usando node >=18, você pode usar o fetch nativo e remover node-fetch.
-import fetch from "node-fetch";
+import fetch from "node-fetch"; // Se usar Node 18+, você pode usar o fetch nativo.
 
 dotenv.config();
 
@@ -11,139 +10,156 @@ const app = express();
 app.use(express.json({ limit: "1mb" }));
 app.use(cors());
 
-/* --------- Utilitários --------- */
+// =========================
+// Limites de tokens por REQUISIÇÃO (rigor: <= 6000)
+// =========================
+// Aproximação padrão: ~4 caracteres ≈ 1 token.
+// Mantemos uma margem (OVERHEAD_TOKENS) para o próprio prompt e variações do modelo.
+const TOKEN_LIMIT        = 6000;   // total (entrada + saída)
+const MAX_OUTPUT_TOKENS  = 300;    // teto para a RESPOSTA do modelo
+const OVERHEAD_TOKENS    = 400;    // margem p/ prompt/headers/variações
+const CHAR_PER_TOKEN     = 4;      // estimativa 1 token ~ 4 chars
 
-// Divide texto em blocos ~3k chars para não estourar TPM/tokens
-function dividirTexto(texto, tamanhoMaximo = 3000) {
-  const partes = [];
-  for (let i = 0; i < texto.length; i += tamanhoMaximo) {
-    partes.push(texto.slice(i, i + tamanhoMaximo));
-  }
-  return partes;
+// Orçamento para a ENTRADA (prompt + texto do usuário)
+// Observação: o prompt também consome tokens, por isso somamos OVERHEAD_TOKENS e reservamos MAX_OUTPUT_TOKENS.
+const INPUT_TOKEN_BUDGET = Math.max(100, TOKEN_LIMIT - MAX_OUTPUT_TOKENS - OVERHEAD_TOKENS);
+const INPUT_CHAR_BUDGET  = INPUT_TOKEN_BUDGET * CHAR_PER_TOKEN;
+
+// =========================
+// Utils
+// =========================
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+function fitTextToBudget(texto) {
+  if (!texto) return "";
+  // corta o texto para caber no orçamento de ENTRADA (em chars)
+  return texto.slice(0, INPUT_CHAR_BUDGET);
 }
 
-// Prompt curto e “mandão” para reduzir verborragia
-function promptCompacto(parte) {
-  return `
-Você é um analista de políticas de privacidade.
-
-Responda SOMENTE em JSON VÁLIDO (sem markdown, sem explicações), neste formato ENXUTO:
-
-{
-  "resumo": "máx. 1 frase clara",
-  "riscos": ["máx. 3 tópicos curtos"],
-  "repasse": ["máx. 2 tópicos curtos"],
-  "percentual_uso_dados": "ex: 60% ou 'não informado'",
-  "recomendacoes": ["máx. 3 tópicos curtos"]
-}
-
-Texto:
-"""${parte}"""
-`.trim();
-}
-
-// Extrai o primeiro JSON válido da resposta (remove ```json ... ``` etc.)
+// Remove cercas ```json e extrai o primeiro JSON válido
 function extrairJSON(texto) {
   if (typeof texto !== "string") return null;
-  // tira cercas de código
   const cercado = texto.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
   if (cercado) texto = cercado[1];
-  // pega do primeiro { até o último }
   const ini = texto.indexOf("{");
   const fim = texto.lastIndexOf("}");
   if (ini === -1 || fim === -1 || fim <= ini) return null;
-  const bruto = texto.slice(ini, fim + 1);
   try {
-    return JSON.parse(bruto);
+    return JSON.parse(texto.slice(ini, fim + 1));
   } catch {
     return null;
   }
 }
 
-// Normaliza e ENXUGA um resultado (cortes duros)
-function clampStr(s, max = 160) {
-  if (typeof s !== "string") return "";
-  return s.length > max ? s.slice(0, max - 1).trim() + "…" : s.trim();
+const clampStr = (s, max = 50) => (s || "").toString().trim().slice(0, max);
+function clampArr(a, n = 6, itemMax = 50) {
+  const arr = Array.isArray(a) ? a : [];
+  const dedup = [...new Set(arr.map((x) => (x || "").toString().trim()).filter(Boolean))];
+  return dedup.slice(0, n).map((x) => clampStr(x, itemMax));
 }
-function clampArr(a, n = 3, itemMax = 80) {
-  if (!Array.isArray(a)) a = [];
-  // dedup + limpa
-  const dedup = [...new Set(a.map(x => String(x || "").trim()).filter(Boolean))];
-  return dedup.slice(0, n).map(x => clampStr(x, itemMax));
-}
-function normalizar(obj) {
-  obj = obj || {};
+
+// Normaliza para o payload compacto desejado
+function normalizarPII(obj = {}) {
+  const dados_coletados  = clampArr(obj.dados_coletados, 6, 50);
+  const dados_sensiveis  = clampArr(obj.dados_sensiveis, 6, 50);
+  const rastreamento     = clampArr(obj.rastreamento, 6, 50);
+  const compartilhamento = clampArr(obj.compartilhamento, 5, 50);
+
+  // Se o modelo não trouxer a nota, calculamos com a mesma regra do prompt
+  const calcNota = () => {
+    const n =
+      Math.min(dados_coletados.length * 5, 30) +
+      Math.min(dados_sensiveis.length * 8, 40) +
+      Math.min(rastreamento.length * 4, 20) +
+      Math.min(compartilhamento.length * 2, 10);
+    return Math.max(0, Math.min(100, n));
+  };
+
+  const nota = Number(obj?.intrusividade?.nota ?? calcNota());
+  const nivel = nota <= 33 ? "baixo" : nota <= 66 ? "medio" : "alto";
+
   return {
-    resumo: clampStr(obj.resumo || "", 160), // máx. 1 frase curta
-    riscos: clampArr(obj.riscos, 3, 70),
-    repasse: clampArr(obj.repasse, 2, 70),
-    percentual_uso_dados: (obj.percentual_uso_dados && String(obj.percentual_uso_dados).trim()) || "não informado",
-    recomendacoes: clampArr(obj.recomendacoes, 3, 70),
+    dados_coletados,
+    dados_sensiveis,
+    rastreamento,
+    compartilhamento,
+    intrusividade: { nota, nivel },
   };
 }
 
-// Agrega várias partes em um único resultado compacto
-function agregarPartes(partesNorm) {
-  const resumo = clampStr(
-    partesNorm.map(p => p.resumo).filter(Boolean).slice(0, 1).join(" "), // só 1 frase
-    160
-  );
-  const riscos = clampArr(partesNorm.flatMap(p => p.riscos), 3, 70);
-  const repasse = clampArr(partesNorm.flatMap(p => p.repasse), 2, 70);
-  const recomenda = clampArr(partesNorm.flatMap(p => p.recomendacoes), 3, 70);
+// =========================
+// Prompt focado em PII + intrusividade
+// =========================
+function promptCompacto(textoAjustado) {
+  return `
+Responda SOMENTE em JSON VÁLIDO (sem markdown, sem texto fora do JSON).
+Extraia APENAS o que o texto afirmar explicitamente. NÃO invente.
 
-  // pega a primeira % “não não-informado”
-  const pct = (partesNorm.map(p => p.percentual_uso_dados).find(v => v && v !== "não informado")) || "não informado";
-
-  return { resumo, riscos, repasse, percentual_uso_dados: pct, recomendacoes: recomenda };
+Esquema e limites:
+{
+  "dados_coletados": ["máx. 6 itens curtos — ex.: nome completo, e-mail, endereço, telefone, data de nascimento, CPF/SSN"],
+  "dados_sensiveis": ["máx. 6 — ex.: saúde, biometria, religião, orientação sexual, dados financeiros, geolocalização precisa"],
+  "rastreamento": ["máx. 6 — ex.: IP, cookies, device ID, fingerprint, ad ID, SDK/PIXEL de terceiros"],
+  "compartilhamento": ["máx. 5 — ex.: anunciantes, analytics, afiliadas, provedores de nuvem, autoridades"],
+  "intrusividade": { "nota": 0-100, "nivel": "baixo" | "medio" | "alto" }
 }
 
-/* --------- Rota --------- */
+Regras de extração:
+- Inclua um item SÓ se houver menção clara no trecho (sinônimos contam, ex.: “identificador do dispositivo” = device ID).
+- Se não houver citação explícita, deixe a lista vazia [].
 
+Como calcular "intrusividade.nota" (clamp 0..100):
+- Baseie-se APENAS no trecho.
+- Pontos: dados_coletados (5/item, até 30) + dados_sensiveis (8/item, até 40) + rastreamento (4/item, até 20) + compartilhamento (2/item, até 10).
+- "intrusividade.nivel": 0–33 => "baixo", 34–66 => "medio", 67–100 => "alto".
+
+Texto:
+"""${textoAjustado}"""
+`.trim();
+}
+
+// =========================
+// Rota principal (UMA chamada por requisição, ≤ 6000 tokens)
+// =========================
 app.post("/analisar", async (req, res) => {
   try {
     const { texto } = req.body;
     if (!texto) return res.status(400).json({ erro: "Texto não recebido" });
 
-    const partes = dividirTexto(texto, 3000);
-    const resultados = [];
+    // 1) Ajusta o texto para caber no orçamento de ENTRADA
+    const textoAjustado = fitTextToBudget(texto);
 
-    for (const parte of partes) {
-      const prompt = promptCompacto(parte);
+    // 2) Monta prompt (curto) com o texto já ajustado
+    const prompt = promptCompacto(textoAjustado);
 
-      const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${process.env.GROQ_API_KEY}`,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          model: process.env.GROQ_MODEL || "llama-3.1-8b-instant",
-          messages: [{ role: "user", content: prompt }],
-          temperature: 0.1,
-          top_p: 0.3,
-          max_tokens: 300,              // 👈 segura a verborragia
-          stop: ["```", "\n\n\n"]       // 👈 evita cercas e textão
-        })
-      });
+    // 3) Chama Groq com limite de saída (MAX_OUTPUT_TOKENS)
+    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${process.env.GROQ_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: process.env.GROQ_MODEL || "llama-3.1-8b-instant",
+        messages: [{ role: "user", content: prompt }],
+        temperature: 0.1,
+        top_p: 0.3,
+        max_tokens: MAX_OUTPUT_TOKENS, // <-- saída limitada
+        stop: ["```", "\n\n\n"],
+      }),
+    });
 
-      const data = await response.json();
+    const data = await response.json();
 
-      if (data?.error) {
-        console.warn("Groq error:", data.error);
-        // não quebra, só registra o erro nesta parte
-        resultados.push(normalizar({}));
-      } else {
-        const content = data?.choices?.[0]?.message?.content || "";
-        const json = extrairJSON(content) || {};
-        resultados.push(normalizar(json));
-      }
-
-      // pequena pausa para respeitar TPM (ajuste se necessário)
-      await new Promise(r => setTimeout(r, 1200));
+    if (data?.error) {
+      // Em caso de erro da API, retornamos estrutura vazia normalizada
+      console.warn("Groq error:", data.error);
+      return res.json(normalizarPII({}));
     }
 
-    const final = agregarPartes(resultados);
+    const content = data?.choices?.[0]?.message?.content || "";
+    const json = extrairJSON(content) || {};
+    const final = normalizarPII(json);
     return res.json(final);
   } catch (e) {
     console.error(e);
@@ -151,4 +167,6 @@ app.post("/analisar", async (req, res) => {
   }
 });
 
-app.listen(3000, () => console.log("Servidor rodando em http://localhost:3000"));
+app.listen(3000, () => {
+  console.log("Servidor rodando em http://localhost:3000");
+});
