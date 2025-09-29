@@ -1,141 +1,26 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
-<head>
-  <meta charset="UTF-8" />
-  <title>Guardião – Análise</title>
-  <style>
-    :root {
-      --bg: #ffffff;
-      --fg: #222;
-      --muted: #666;
-      --card: #f7f7f8;
-      --border: #e6e6e8;
-      --ok: #5cb85c;
-      --warn: #f0ad4e;
-      --bad: #d9534f;
-      --accent: #3b82f6;
-    }
-    html, body {
-      background: var(--bg);
-      color: var(--fg);
-      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Helvetica Neue", "Noto Sans", "Liberation Sans", "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji", sans-serif;
-      margin: 0;
-      padding: 0;
-      width: 340px;
-    }
-    header {
-      padding: 10px 12px;
-      border-bottom: 1px solid var(--border);
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 8px;
-    }
-    h3 {
-      font-size: 15px;
-      margin: 0;
-    }
-    main {
-      padding: 10px 12px 14px;
-    }
-    button {
-      border: 1px solid var(--border);
-      background: var(--accent);
-      color: #fff;
-      font-weight: 600;
-      padding: 8px 10px;
-      border-radius: 10px;
-      cursor: pointer;
-    }
-    button:disabled {
-      opacity: 0.6;
-      cursor: not-allowed;
-    }
-    .status {
-      font-size: 12px;
-      color: var(--muted);
-      margin-top: 6px;
-    }
-    .card {
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 10px;
-      margin: 10px 0;
-    }
-    .card h4 {
-      margin: 0 0 6px 0;
-      font-size: 13px;
-    }
-    ul {
-      margin: 6px 0 0 0;
-      padding-left: 18px;
-    }
-    li {
-      font-size: 13px;
-      margin: 3px 0;
-    }
-    .muted { color: var(--muted); }
-    .row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 8px;
-      flex-wrap: wrap;
-    }
-    .pill {
-      font-size: 12px;
-      padding: 3px 8px;
-      border-radius: 999px;
-      border: 1px solid var(--border);
-      background: #fff;
-      color: var(--muted);
-    }
-    /* Barra de intrusividade */
-    .meter {
-      height: 8px;
-      border-radius: 999px;
-      background: #eee;
-      overflow: hidden;
-      border: 1px solid var(--border);
-    }
-    .fill {
-      height: 100%;
-      width: 0%;
-      background: var(--ok);
-      transition: width 280ms ease;
-    }
-    .lvl-baixo  { background: var(--ok); }
-    .lvl-medio  { background: var(--warn); }
-    .lvl-alto   { background: var(--bad); }
-    /* Skeleton simples */
-    .skeleton {
-      animation: pulse 1.2s ease-in-out infinite;
-      background: linear-gradient(90deg, #eee, #f5f5f5, #eee);
-      background-size: 200% 100%;
-    }
-    @keyframes pulse { 0% {background-position: 200% 0;} 100% {background-position: -200% 0;} }
-    .sk-line { height: 10px; border-radius: 6px; margin: 6px 0; }
-  </style>
-</head>
-<body>
-  <header>
-    <h3>Guardião – Análise da Página</h3>
-    <button id="analisar">Analisar</button>
-  </header>
-  <main>
-    <div id="status" class="status">Clique em “Analisar” para começar.</div>
+  <head>
+    <meta charset="UTF-8" />
+    <title>Guardião – Análise</title>
+  </head>
+  <body>
+    <header>
+      <h3>Guardião – Análise da Página</h3>
+      <button id="analisar">Analisar</button>
+    </header>
+    <main>
+      <div id="status" class="status">Clique em “Analisar” para começar.</div>
 
-    <div id="resultado">
-      <!-- skeleton inicial -->
-      <div class="card">
-        <div class="sk-line skeleton" style="width: 70%"></div>
-        <div class="sk-line skeleton" style="width: 85%"></div>
-        <div class="sk-line skeleton" style="width: 65%"></div>
+      <div id="resultado">
+        <!-- skeleton inicial -->
+        <div class="card">
+          <div class="sk-line skeleton" style="width: 70%"></div>
+          <div class="sk-line skeleton" style="width: 85%"></div>
+          <div class="sk-line skeleton" style="width: 65%"></div>
+        </div>
       </div>
-    </div>
-  </main>
-
-  <script src="popup.js"></script>
-</body>
+    </main>
+    <script src="popup.js"></script>
+  </body>
 </html>
