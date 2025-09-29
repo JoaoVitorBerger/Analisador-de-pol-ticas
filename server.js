@@ -143,6 +143,28 @@ Texto:
 }
 
 // =========================
+// Função com retry automático
+// =========================
+async function chamarGroqComRetry(payload, tentativas = 5) {
+  for (let i = 0; i < tentativas; i++) {
+    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", payload);
+    const data = await response.json();
+
+    // Se não tem erro de rate limit → retorna
+    if (!data?.error || data.error.code !== "rate_limit_exceeded") {
+      return data;
+    }
+
+    // Espera conforme Retry-After ou fallback 45s
+    const retryAfter = response.headers.get("retry-after");
+    const wait = retryAfter ? parseInt(retryAfter, 10) * 1000 : 45000;
+    console.warn(`⚠️ Rate limit atingido. Tentando novamente em ${wait / 1000}s...`);
+    await sleep(wait);
+  }
+  throw new Error("Groq rate limit persistente. Tente novamente mais tarde.");
+}
+
+// =========================
 // Rota principal (analisa blocos grandes também)
 // =========================
 app.post("/analisar", async (req, res) => {
@@ -159,7 +181,7 @@ app.post("/analisar", async (req, res) => {
     for (const bloco of blocos) {
       const prompt = promptCompacto(bloco);
 
-      const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      const payload = {
         method: "POST",
         headers: {
           "Authorization": `Bearer ${process.env.GROQ_API_KEY}`,
@@ -173,9 +195,10 @@ app.post("/analisar", async (req, res) => {
           max_tokens: MAX_OUTPUT_TOKENS,
           stop: ["```", "\n\n\n"],
         }),
-      });
+      };
 
-      const data = await response.json();
+      const data = await chamarGroqComRetry(payload);
+
       if (data?.error) {
         console.warn("Groq error:", data.error);
         resultados.push(normalizarPII({}));
