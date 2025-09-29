@@ -2,7 +2,7 @@
 import express from "express";
 import dotenv from "dotenv";
 import cors from "cors";
-import fetch from "node-fetch"; // Se usar Node 18+, você pode usar o fetch nativo.
+import fetch from "node-fetch"; // Se usar Node 18+, pode usar fetch nativo.
 
 dotenv.config();
 
@@ -13,15 +13,11 @@ app.use(cors());
 // =========================
 // Limites de tokens por REQUISIÇÃO (rigor: <= 6000)
 // =========================
-// Aproximação padrão: ~4 caracteres ≈ 1 token.
-// Mantemos uma margem (OVERHEAD_TOKENS) para o próprio prompt e variações do modelo.
 const TOKEN_LIMIT        = 6000;   // total (entrada + saída)
 const MAX_OUTPUT_TOKENS  = 300;    // teto para a RESPOSTA do modelo
 const OVERHEAD_TOKENS    = 400;    // margem p/ prompt/headers/variações
 const CHAR_PER_TOKEN     = 4;      // estimativa 1 token ~ 4 chars
 
-// Orçamento para a ENTRADA (prompt + texto do usuário)
-// Observação: o prompt também consome tokens, por isso somamos OVERHEAD_TOKENS e reservamos MAX_OUTPUT_TOKENS.
 const INPUT_TOKEN_BUDGET = Math.max(100, TOKEN_LIMIT - MAX_OUTPUT_TOKENS - OVERHEAD_TOKENS);
 const INPUT_CHAR_BUDGET  = INPUT_TOKEN_BUDGET * CHAR_PER_TOKEN;
 
@@ -32,8 +28,18 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 function fitTextToBudget(texto) {
   if (!texto) return "";
-  // corta o texto para caber no orçamento de ENTRADA (em chars)
   return texto.slice(0, INPUT_CHAR_BUDGET);
+}
+
+// Divide texto em blocos que cabem no orçamento
+function dividirTexto(texto, maxChars = INPUT_CHAR_BUDGET) {
+  const partes = [];
+  let inicio = 0;
+  while (inicio < texto.length) {
+    partes.push(texto.slice(inicio, inicio + maxChars));
+    inicio += maxChars;
+  }
+  return partes;
 }
 
 // Remove cercas ```json e extrai o primeiro JSON válido
@@ -65,7 +71,6 @@ function normalizarPII(obj = {}) {
   const rastreamento     = clampArr(obj.rastreamento, 6, 50);
   const compartilhamento = clampArr(obj.compartilhamento, 5, 50);
 
-  // Se o modelo não trouxer a nota, calculamos com a mesma regra do prompt
   const calcNota = () => {
     const n =
       Math.min(dados_coletados.length * 5, 30) +
@@ -85,6 +90,25 @@ function normalizarPII(obj = {}) {
     compartilhamento,
     intrusividade: { nota, nivel },
   };
+}
+
+// Mescla múltiplos resultados normalizados
+function mesclarResultados(resultados) {
+  const acumulado = {
+    dados_coletados: [],
+    dados_sensiveis: [],
+    rastreamento: [],
+    compartilhamento: [],
+  };
+
+  for (const r of resultados) {
+    acumulado.dados_coletados.push(...(r.dados_coletados || []));
+    acumulado.dados_sensiveis.push(...(r.dados_sensiveis || []));
+    acumulado.rastreamento.push(...(r.rastreamento || []));
+    acumulado.compartilhamento.push(...(r.compartilhamento || []));
+  }
+
+  return normalizarPII(acumulado);
 }
 
 // =========================
@@ -119,48 +143,54 @@ Texto:
 }
 
 // =========================
-// Rota principal (UMA chamada por requisição, ≤ 6000 tokens)
+// Rota principal (analisa blocos grandes também)
 // =========================
 app.post("/analisar", async (req, res) => {
   try {
     const { texto } = req.body;
     if (!texto) return res.status(400).json({ erro: "Texto não recebido" });
 
-    // 1) Ajusta o texto para caber no orçamento de ENTRADA
-    const textoAjustado = fitTextToBudget(texto);
+    // 1) Divide em blocos se o texto for muito grande
+    const blocos = dividirTexto(texto);
 
-    // 2) Monta prompt (curto) com o texto já ajustado
-    const prompt = promptCompacto(textoAjustado);
+    const resultados = [];
 
-    // 3) Chama Groq com limite de saída (MAX_OUTPUT_TOKENS)
-    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${process.env.GROQ_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: process.env.GROQ_MODEL || "llama-3.1-8b-instant",
-        messages: [{ role: "user", content: prompt }],
-        temperature: 0.1,
-        top_p: 0.3,
-        max_tokens: MAX_OUTPUT_TOKENS, // <-- saída limitada
-        stop: ["```", "\n\n\n"],
-      }),
-    });
+    // 2) Analisa cada bloco separadamente
+    for (const bloco of blocos) {
+      const prompt = promptCompacto(bloco);
 
-    const data = await response.json();
+      const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${process.env.GROQ_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: process.env.GROQ_MODEL || "llama-3.1-8b-instant",
+          messages: [{ role: "user", content: prompt }],
+          temperature: 0.1,
+          top_p: 0.3,
+          max_tokens: MAX_OUTPUT_TOKENS,
+          stop: ["```", "\n\n\n"],
+        }),
+      });
 
-    if (data?.error) {
-      // Em caso de erro da API, retornamos estrutura vazia normalizada
-      console.warn("Groq error:", data.error);
-      return res.json(normalizarPII({}));
+      const data = await response.json();
+      if (data?.error) {
+        console.warn("Groq error:", data.error);
+        resultados.push(normalizarPII({}));
+        continue;
+      }
+
+      const content = data?.choices?.[0]?.message?.content || "";
+      const json = extrairJSON(content) || {};
+      resultados.push(normalizarPII(json));
     }
 
-    const content = data?.choices?.[0]?.message?.content || "";
-    const json = extrairJSON(content) || {};
-    const final = normalizarPII(json);
+    // 3) Mescla todos os resultados
+    const final = mesclarResultados(resultados);
     return res.json(final);
+
   } catch (e) {
     console.error(e);
     return res.status(500).json({ erro: "Erro na análise" });
