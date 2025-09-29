@@ -2,7 +2,7 @@
 import express from "express";
 import dotenv from "dotenv";
 import cors from "cors";
-import fetch from "node-fetch"; // Se usar Node 18+, pode usar fetch nativo.
+import fetch from "node-fetch";
 
 dotenv.config();
 
@@ -11,28 +11,26 @@ app.use(express.json({ limit: "1mb" }));
 app.use(cors());
 
 // =========================
-// Limites de tokens por REQUISIÇÃO (rigor: <= 6000)
+// Limites de tokens e blocos
 // =========================
-const TOKEN_LIMIT        = 6000;   // total (entrada + saída)
-const MAX_OUTPUT_TOKENS  = 300;    // teto para a RESPOSTA do modelo
-const OVERHEAD_TOKENS    = 400;    // margem p/ prompt/headers/variações
-const CHAR_PER_TOKEN     = 4;      // estimativa 1 token ~ 4 chars
+const TOKEN_LIMIT        = 6000;
+const MAX_OUTPUT_TOKENS  = 300;
+const OVERHEAD_TOKENS    = 400;
+const CHAR_PER_TOKEN     = 4;
 
 const INPUT_TOKEN_BUDGET = Math.max(100, TOKEN_LIMIT - MAX_OUTPUT_TOKENS - OVERHEAD_TOKENS);
 const INPUT_CHAR_BUDGET  = INPUT_TOKEN_BUDGET * CHAR_PER_TOKEN;
+
+// Blocos menores para o plano gratuito
+const BLOCO_CHAR_LIMIT = 2500; // ~625 tokens aprox
+const DELAY_BLOCOS_MS  = 1000; // 1s entre chamadas
 
 // =========================
 // Utils
 // =========================
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-function fitTextToBudget(texto) {
-  if (!texto) return "";
-  return texto.slice(0, INPUT_CHAR_BUDGET);
-}
-
-// Divide texto em blocos que cabem no orçamento
-function dividirTexto(texto, maxChars = INPUT_CHAR_BUDGET) {
+function dividirTexto(texto, maxChars = BLOCO_CHAR_LIMIT) {
   const partes = [];
   let inicio = 0;
   while (inicio < texto.length) {
@@ -64,7 +62,6 @@ function clampArr(a, n = 6, itemMax = 50) {
   return dedup.slice(0, n).map((x) => clampStr(x, itemMax));
 }
 
-// Normaliza para o payload compacto desejado
 function normalizarPII(obj = {}) {
   const dados_coletados  = clampArr(obj.dados_coletados, 6, 50);
   const dados_sensiveis  = clampArr(obj.dados_sensiveis, 6, 50);
@@ -92,7 +89,6 @@ function normalizarPII(obj = {}) {
   };
 }
 
-// Mescla múltiplos resultados normalizados
 function mesclarResultados(resultados) {
   const acumulado = {
     dados_coletados: [],
@@ -112,7 +108,7 @@ function mesclarResultados(resultados) {
 }
 
 // =========================
-// Prompt focado em PII + intrusividade
+// Prompt
 // =========================
 function promptCompacto(textoAjustado) {
   return `
@@ -128,89 +124,75 @@ Esquema e limites:
   "intrusividade": { "nota": 0-100, "nivel": "baixo" | "medio" | "alto" }
 }
 
-Regras de extração:
-- Inclua um item SÓ se houver menção clara no trecho (sinônimos contam, ex.: “identificador do dispositivo” = device ID).
-- Se não houver citação explícita, deixe a lista vazia [].
-
-Como calcular "intrusividade.nota" (clamp 0..100):
-- Baseie-se APENAS no trecho.
-- Pontos: dados_coletados (5/item, até 30) + dados_sensiveis (8/item, até 40) + rastreamento (4/item, até 20) + compartilhamento (2/item, até 10).
-- "intrusividade.nivel": 0–33 => "baixo", 34–66 => "medio", 67–100 => "alto".
-
 Texto:
 """${textoAjustado}"""
 `.trim();
 }
 
 // =========================
-// Função com retry automático
+// Função com retry automático em caso de rate limit
 // =========================
-async function chamarGroqComRetry(payload, tentativas = 5) {
+async function chamarGroqComRetry(body, tentativas = 5) {
   for (let i = 0; i < tentativas; i++) {
-    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", payload);
+    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${process.env.GROQ_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    });
+
     const data = await response.json();
 
-    // Se não tem erro de rate limit → retorna
     if (!data?.error || data.error.code !== "rate_limit_exceeded") {
       return data;
     }
 
-    // Espera conforme Retry-After ou fallback 45s
-    const retryAfter = response.headers.get("retry-after");
-    const wait = retryAfter ? parseInt(retryAfter, 10) * 1000 : 45000;
+    const wait = 45000; // 45s
     console.warn(`⚠️ Rate limit atingido. Tentando novamente em ${wait / 1000}s...`);
     await sleep(wait);
   }
-  throw new Error("Groq rate limit persistente. Tente novamente mais tarde.");
+
+  return { error: { message: "Rate limit persistente após várias tentativas." } };
 }
 
 // =========================
-// Rota principal (analisa blocos grandes também)
+// Rota principal
 // =========================
 app.post("/analisar", async (req, res) => {
   try {
     const { texto } = req.body;
     if (!texto) return res.status(400).json({ erro: "Texto não recebido" });
 
-    // 1) Divide em blocos se o texto for muito grande
     const blocos = dividirTexto(texto);
-
     const resultados = [];
 
-    // 2) Analisa cada bloco separadamente
     for (const bloco of blocos) {
       const prompt = promptCompacto(bloco);
 
-      const payload = {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${process.env.GROQ_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: process.env.GROQ_MODEL || "llama-3.1-8b-instant",
-          messages: [{ role: "user", content: prompt }],
-          temperature: 0.1,
-          top_p: 0.3,
-          max_tokens: MAX_OUTPUT_TOKENS,
-          stop: ["```", "\n\n\n"],
-        }),
-      };
-
-      const data = await chamarGroqComRetry(payload);
+      const data = await chamarGroqComRetry({
+        model: process.env.GROQ_MODEL || "llama-3.1-8b-instant",
+        messages: [{ role: "user", content: prompt }],
+        temperature: 0.1,
+        top_p: 0.3,
+        max_tokens: MAX_OUTPUT_TOKENS,
+        stop: ["```", "\n\n\n"],
+      });
 
       if (data?.error) {
         console.warn("Groq error:", data.error);
         resultados.push(normalizarPII({}));
-        continue;
+      } else {
+        const content = data?.choices?.[0]?.message?.content || "";
+        const json = extrairJSON(content) || {};
+        resultados.push(normalizarPII(json));
       }
 
-      const content = data?.choices?.[0]?.message?.content || "";
-      const json = extrairJSON(content) || {};
-      resultados.push(normalizarPII(json));
+      // Evita estourar limite → espera entre blocos
+      await sleep(DELAY_BLOCOS_MS);
     }
 
-    // 3) Mescla todos os resultados
     const final = mesclarResultados(resultados);
     return res.json(final);
 
@@ -221,5 +203,5 @@ app.post("/analisar", async (req, res) => {
 });
 
 app.listen(3000, () => {
-  console.log("Servidor rodando em http://localhost:3000");
+  console.log("🚀 Servidor rodando em http://localhost:3000");
 });
