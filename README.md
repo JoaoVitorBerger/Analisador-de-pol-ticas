@@ -42,16 +42,15 @@ Analisador-de-pol-ticas/
 - │ ├── 📄 popup.html
 - │ └── 📄 popup.js
 - │
-- ├── 📂 node_modules/ # Dependências do Node.js
+- ├── 📂 node_modules/ 
 - │
 - ├── 📄 .env # Variáveis de ambiente
-- ├── 📄 .gitignore # Arquivos/pastas ignorados pelo Git
-- ├── 📄 package-lock.json # Versões exatas das dependências instaladas
-- ├── 📄 package.json # Configurações e dependências do projeto
-- ├── 📄 README.md # Documentação do projeto
-- └── 📄 server.js # Servidor principal
+- ├── 📄 .gitignore 
+- ├── 📄 package-lock.json 
+- ├── 📄 package.json 
+- ├── 📄 README.md 
+- └── 📄 server.js 
 - │
-- README.md
 
 ---
 
@@ -59,7 +58,6 @@ Analisador-de-pol-ticas/
 
 - GROQ_API_KEY=coloque_sua_chave_aqui
 - GROQ_MODEL=llama-3.3-70b-versatile
-- PORT=3000
 
 ---
 
