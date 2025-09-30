@@ -21,7 +21,6 @@ const CHAR_PER_TOKEN     = 4;
 const INPUT_TOKEN_BUDGET = Math.max(100, TOKEN_LIMIT - MAX_OUTPUT_TOKENS - OVERHEAD_TOKENS);
 const INPUT_CHAR_BUDGET  = INPUT_TOKEN_BUDGET * CHAR_PER_TOKEN;
 
-// Blocos menores para o plano gratuito
 const BLOCO_CHAR_LIMIT = 2500; // ~625 tokens aprox
 const DELAY_BLOCOS_MS  = 1000; // 1s entre chamadas
 
@@ -40,7 +39,6 @@ function dividirTexto(texto, maxChars = BLOCO_CHAR_LIMIT) {
   return partes;
 }
 
-// Remove cercas ```json e extrai o primeiro JSON válido
 function extrairJSON(texto) {
   if (typeof texto !== "string") return null;
   const cercado = texto.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
@@ -130,7 +128,7 @@ Texto:
 }
 
 // =========================
-// Função com retry automático em caso de rate limit
+// Função com retry automático
 // =========================
 async function chamarGroqComRetry(body, tentativas = 5) {
   for (let i = 0; i < tentativas; i++) {
@@ -168,8 +166,14 @@ app.post("/analisar", async (req, res) => {
     const blocos = dividirTexto(texto);
     const resultados = [];
 
+    let tokensEntradaTotal = 0;
+
     for (const bloco of blocos) {
       const prompt = promptCompacto(bloco);
+
+      // Estimativa de tokens de entrada do bloco
+      const tokensEntradaBloco = Math.ceil(bloco.length / CHAR_PER_TOKEN);
+      tokensEntradaTotal += tokensEntradaBloco;
 
       const data = await chamarGroqComRetry({
         model: process.env.GROQ_MODEL || "llama-3.1-8b-instant",
@@ -189,11 +193,18 @@ app.post("/analisar", async (req, res) => {
         resultados.push(normalizarPII(json));
       }
 
-      // Evita estourar limite → espera entre blocos
       await sleep(DELAY_BLOCOS_MS);
     }
 
     const final = mesclarResultados(resultados);
+
+    // Adiciona informação de tokens ao resultado
+    final.tokens = {
+      entrada_estimativa: tokensEntradaTotal,
+      saida_max: MAX_OUTPUT_TOKENS,
+      total_estimativa: tokensEntradaTotal + MAX_OUTPUT_TOKENS + OVERHEAD_TOKENS
+    };
+
     return res.json(final);
 
   } catch (e) {
