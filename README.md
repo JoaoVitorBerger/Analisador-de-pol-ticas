@@ -87,11 +87,11 @@ Analisador-de-pol-ticas/
 
 ## O QUE VAI SER APRESENTADO
 
-`📄 Dados coletados`
-`🔒 Dados sensíveis`
-`📡 Rastreamento do usuário`
-`🔁 Compartilhamento de dados`
-`⚠️ Nível de intrusividade (nota e classificação)`
+📄 Dados coletados
+🔒 Dados sensíveis
+📡 Rastreamento do usuário
+🔁 Compartilhamento de dados
+⚠️ Nível de intrusividade (nota e classificação)
 
 ---
 
