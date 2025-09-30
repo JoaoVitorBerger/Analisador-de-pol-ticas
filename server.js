@@ -21,8 +21,7 @@ const CHAR_PER_TOKEN     = 4;
 const INPUT_TOKEN_BUDGET = Math.max(100, TOKEN_LIMIT - MAX_OUTPUT_TOKENS - OVERHEAD_TOKENS);
 const INPUT_CHAR_BUDGET  = INPUT_TOKEN_BUDGET * CHAR_PER_TOKEN;
 
-// Blocos menores para o plano gratuito
-const BLOCO_CHAR_LIMIT = 2500; // ~625 tokens aprox
+const BLOCO_CHAR_LIMIT = 2500; // ~625 tokens
 const DELAY_BLOCOS_MS  = 1000; // 1s entre chamadas
 
 // =========================
@@ -40,7 +39,6 @@ function dividirTexto(texto, maxChars = BLOCO_CHAR_LIMIT) {
   return partes;
 }
 
-// Remove cercas ```json e extrai o primeiro JSON válido
 function extrairJSON(texto) {
   if (typeof texto !== "string") return null;
   const cercado = texto.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
@@ -117,10 +115,10 @@ Extraia APENAS o que o texto afirmar explicitamente. NÃO invente.
 
 Esquema e limites:
 {
-  "dados_coletados": ["máx. 6 itens curtos — ex.: nome completo, e-mail, endereço, telefone, data de nascimento, CPF/SSN"],
-  "dados_sensiveis": ["máx. 6 — ex.: saúde, biometria, religião, orientação sexual, dados financeiros, geolocalização precisa"],
-  "rastreamento": ["máx. 6 — ex.: IP, cookies, device ID, fingerprint, ad ID, SDK/PIXEL de terceiros"],
-  "compartilhamento": ["máx. 5 — ex.: anunciantes, analytics, afiliadas, provedores de nuvem, autoridades"],
+  "dados_coletados": ["máx. 6 itens curtos"],
+  "dados_sensiveis": ["máx. 6"],
+  "rastreamento": ["máx. 6"],
+  "compartilhamento": ["máx. 5"],
   "intrusividade": { "nota": 0-100, "nivel": "baixo" | "medio" | "alto" }
 }
 
@@ -130,7 +128,7 @@ Texto:
 }
 
 // =========================
-// Função com retry automático em caso de rate limit
+// Chamada Groq com retry
 // =========================
 async function chamarGroqComRetry(body, tentativas = 5) {
   for (let i = 0; i < tentativas; i++) {
@@ -149,7 +147,7 @@ async function chamarGroqComRetry(body, tentativas = 5) {
       return data;
     }
 
-    const wait = 45000; // 45s
+    const wait = 45000;
     console.warn(`⚠️ Rate limit atingido. Tentando novamente em ${wait / 1000}s...`);
     await sleep(wait);
   }
@@ -168,8 +166,18 @@ app.post("/analisar", async (req, res) => {
     const blocos = dividirTexto(texto);
     const resultados = [];
 
-    for (const bloco of blocos) {
+    for (let idx = 0; idx < blocos.length; idx++) {
+      const bloco = blocos[idx];
       const prompt = promptCompacto(bloco);
+
+      // DEBUG tokens
+      const charLen = prompt.length;
+      const estTokens = Math.ceil(charLen / CHAR_PER_TOKEN);
+      console.log(`📦 Bloco ${idx + 1}/${blocos.length}`);
+      console.log(`   🔹 Chars: ${charLen}, Tokens estimados: ${estTokens}`);
+      console.log("   --- Trecho inicial do prompt ---");
+      console.log(prompt.slice(0, 200).replace(/\n/g, " ") + "...");
+      console.log("   --------------------------------");
 
       const data = await chamarGroqComRetry({
         model: process.env.GROQ_MODEL || "llama-3.1-8b-instant",
@@ -185,15 +193,20 @@ app.post("/analisar", async (req, res) => {
         resultados.push(normalizarPII({}));
       } else {
         const content = data?.choices?.[0]?.message?.content || "";
+        console.log("   🔹 Resposta bruta do modelo:", content);
+
         const json = extrairJSON(content) || {};
-        resultados.push(normalizarPII(json));
+        const normalizado = normalizarPII(json);
+        console.log("   🔹 Tokens normalizados:", normalizado);
+
+        resultados.push(normalizado);
       }
 
-      // Evita estourar limite → espera entre blocos
       await sleep(DELAY_BLOCOS_MS);
     }
 
     const final = mesclarResultados(resultados);
+    console.log("✅ Resultado final mesclado:", final);
     return res.json(final);
 
   } catch (e) {

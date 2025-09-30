@@ -85,6 +85,15 @@ Analisador-de-pol-ticas/
 
 ---
 
+## PONTE DE ATENÇÃO
+- Este analisador possui uma limitação, pois quando usamos uma key API do GROG, temos um limite de tokens que podemos usar diariamente, caso este limite seja ultrapassado, no terminal será retornado uma mensagem de "erro", informando que o limite de tokens foi excedido.
+
+- Para aumentarmos o limite de tokens diários, podemos usar um key API paga, deste modo o nosso limite diário será maior, e podermos analisar textos, maiores, sem o riscos de retornar uma mensagem de erro.
+
+- Otra opção para não retornar o erro seria eu diminuir diretamente no meu código o tamanho máximo de caractéres por bloco, assim permite que o uso de tokens seja menor em cada retorno
+
+---
+
 ## 📡 Como funciona
 - O content script coleta o texto da página.
 - O texto é enviado ao servidor Node.js (/analyze).
