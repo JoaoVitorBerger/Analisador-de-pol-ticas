@@ -85,6 +85,16 @@ Analisador-de-pol-ticas/
 
 ---
 
+## O QUE VAI SER APRESENTADO
+
+`📄 Dados coletados`
+`🔒 Dados sensíveis`
+`📡 Rastreamento do usuário`
+`🔁 Compartilhamento de dados`
+`⚠️ Nível de intrusividade (nota e classificação)`
+
+---
+
 ## PONTE DE ATENÇÃO
 - Este analisador possui uma limitação, pois quando usamos uma key API do GROG, temos um limite de tokens que podemos usar diariamente, caso este limite seja ultrapassado, no terminal será retornado uma mensagem de "erro", informando que o limite de tokens foi excedido.
 
