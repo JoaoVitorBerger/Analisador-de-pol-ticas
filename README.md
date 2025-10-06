@@ -95,12 +95,16 @@ Analisador-de-pol-ticas/
 
 ---
 
-## PONTE DE ATENÇÃO
-- Este analisador possui uma limitação, pois quando usamos uma key API do GROG, temos um limite de tokens que podemos usar diariamente, caso este limite seja ultrapassado, no terminal será retornado uma mensagem de "erro", informando que o limite de tokens foi excedido.
+⚠️ Ponto de Atenção
 
-- Para aumentarmos o limite de tokens diários, podemos usar um key API paga, deste modo o nosso limite diário será maior, e podermos analisar textos, maiores, sem o riscos de retornar uma mensagem de erro.
+- O analisador possui uma limitação relacionada ao uso da API do GROG.
+  - Atente-se aos seguintes pontos:
 
-- Otra opção para não retornar o erro seria eu diminuir diretamente no meu código o tamanho máximo de caractéres por bloco, assim permite que o uso de tokens seja menor em cada retorno
+    - 🔹 Limite de Tokens: Ao utilizar uma API Key gratuita, há um limite diário de tokens disponíveis. Caso esse limite seja ultrapassado, o terminal exibirá uma mensagem de erro, informando que o número máximo de tokens foi excedido.
+
+    - 💳 Solução 1 — API Paga: Para ampliar o limite diário de tokens e permitir a análise de textos maiores sem interrupções, recomenda-se utilizar uma API Key paga.
+
+    - ⚙️ Solução 2 — Ajuste de Código: Outra alternativa é reduzir o tamanho máximo de caracteres por bloco diretamente no código. Dessa forma, o consumo de tokens por requisição será menor, diminuindo as chances de atingir o limite diário.
 
 ---
 
