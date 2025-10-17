@@ -20,6 +20,7 @@ const MAX_OUTPUT_TOKENS  = 300;    // teto para a RESPOSTA do modelo
 const OVERHEAD_TOKENS    = 400;    // margem p/ prompt/headers/variações
 const CHAR_PER_TOKEN     = 4;      // estimativa 1 token ~ 4 chars
 
+// Orçamento para a ENTRADA (prompt + texto do usuário)
 // Observação: o prompt também consome tokens, por isso somamos OVERHEAD_TOKENS e reservamos MAX_OUTPUT_TOKENS.
 const INPUT_TOKEN_BUDGET = Math.max(100, TOKEN_LIMIT - MAX_OUTPUT_TOKENS - OVERHEAD_TOKENS);
 const INPUT_CHAR_BUDGET  = INPUT_TOKEN_BUDGET * CHAR_PER_TOKEN;
