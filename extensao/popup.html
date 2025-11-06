@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="stylesheet" href="style.css">
+    <title>Guardião – Análise</title>
+  </head>
+  <body>
+    <header>
+      <h3>Guardião – Análise de Privacidade</h3>
+      <div class="toolbar">
+        <button id="analisar">Analisar</button>
+        <button id="copiar" disabled>Copiar</button>
+        <button id="baixar" disabled>Baixar</button>
+        <button id="tema">Tema</button>
+        <button id="abrir-config">Config</button>
+      </div>
+    </header>
+    <main>
+      <div id="status" class="status">Clique em “Analisar” para começar.</div>
+
+      <div id="resultado">
+        <!-- skeleton inicial -->
+        <div class="card">
+          <div class="sk-line skeleton" style="width: 70%"></div>
+          <div class="sk-line skeleton" style="width: 85%"></div>
+          <div class="sk-line skeleton" style="width: 65%"></div>
+        </div>
+      </div>
+
+      <section id="historico" class="card" hidden>
+        <div class="row">
+          <h4>Histórico desta página</h4>
+          <span class="pill" id="hist-count">0</span>
+        </div>
+        <ul id="hist-list"></ul>
+      </section>
+
+      <section id="configuracoes" class="card" hidden>
+        <h4>Configurações</h4>
+        <label class="cfg-row">
+          <span>Backend URL</span>
+          <input id="backend-url" type="text" placeholder="http://127.0.0.1:3000" />
+        </label>
+        <div class="row">
+          <button id="salvar-config">Salvar</button>
+          <button id="fechar-config">Fechar</button>
+        </div>
+      </section>
+    </main>
+    <script src="popup.js"></script>
+  </body>
+</html>
