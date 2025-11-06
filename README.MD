@@ -180,20 +180,6 @@ Analisador-de-pol-ticas/
 - O servidor chama a API Groq para análise.
 - O resultado (JSON estruturado) é exibido no popup da extensão.
 
----
 
-## 🖼️ Capturas de tela (exemplos)
 
-Coloque imagens na pasta `docs/` (crie se não existir) e referencie-as no README. Exemplos:
 
-```md
-![Popup claro](docs/popup-claro.png)
-![Popup escuro](docs/popup-escuro.png)
-![Configurações](docs/popup-config.png)
-```
-
-Para gravar um GIF curto, use qualquer gravador (ex.: ShareX) e salve em `docs/fluxo-analise.gif`:
-
-```md
-![Fluxo de análise](docs/fluxo-analise.gif)
-```
