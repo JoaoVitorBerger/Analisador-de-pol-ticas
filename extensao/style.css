@@ -111,25 +111,3 @@
     }
     @keyframes pulse { 0% {background-position: 200% 0;} 100% {background-position: -200% 0;} }
     .sk-line { height: 10px; border-radius: 6px; margin: 6px 0; }
-
-    /* Inputs/config */
-    .cfg-row { display: grid; grid-template-columns: 1fr; gap: 6px; margin: 8px 0; }
-    input[type="text"] {
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 8px 10px;
-      background: #fff;
-      color: var(--fg);
-    }
-
-    /* Tema escuro */
-    body.dark {
-      --bg: #111315;
-      --fg: #e6e6e6;
-      --muted: #a0a0a0;
-      --card: #1a1d20;
-      --border: #2b2f33;
-      --accent: #3b82f6;
-    }
-    body.dark .pill { background: #15181b; }
-    body.dark .meter { background: #222; }

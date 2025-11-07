@@ -1,66 +1,64 @@
-# Guardião – Analisador de Políticas com IA (Extensão + Backend Groq)
+# 🛡️ Guardião de Termos & Privacidade (IA)
 
-Este projeto consiste em uma extensão para navegador (Chrome/Edge) que analisa automaticamente a política de privacidade da página atual, utilizando inteligência artificial (Groq API). Ele retorna, de forma simples e direta:
-
-- Dados coletados
-- Dados sensíveis
-- Rastreamento do usuário
-- Compartilhamento de dados
-- Nível de intrusividade (nota e classificação)
-
-## Novas Funcionalidades
-
-- **Histórico por domínio**: Mantém as últimas 10 análises por site
-- **Copiar resultados**: Exporte análises em JSON para área de transferência
-- **Baixar JSON**: Salve análises completas como arquivo
-- **Tema escuro**: Alternância entre tema claro e escuro
-- **Backend configurável**: Altere a URL do servidor via interface
-- **Endpoint /health**: Verifique rapidamente a configuração do backend
+Extensão para navegador que **analisa automaticamente políticas de privacidade e termos de uso** das páginas que você acessa, destacando riscos e práticas de coleta/compartilhamento de dados pessoais.  
+O projeto utiliza **IA (Groq LLM)** para interpretar o texto e gerar um resumo claro e estruturado.
 
 ---
 
-## Clonando o Projeto
+## 🚀 Funcionalidades
 
-Clone o projeto diretamente na branch `develop`:
+- ✅ Detecta automaticamente páginas de **termos de uso e políticas de privacidade**.  
+- ✅ Analisa o conteúdo usando IA e retorna:  
+  - Resumo geral da política.  
+  - Principais riscos para a privacidade.  
+  - Locais onde pode haver **venda ou repasse de dados**.  
+  - Percentual estimado de uso intensivo de dados pessoais.  
+- ✅ Interface simples via **popup** da extensão.  
+- ✅ API local em **Node.js + Express** para processar as análises.  
+- ✅ Uso do modelo **LLaMA (Groq API)** para interpretação.
 
-```bash
-git clone -b develop --single-branch https://github.com/JoaoVitorBerger/Analisador-de-pol-ticas.git
-cd Analisador-de-pol-ticas
-```
+---
+
+## 🛠️ Tecnologias Utilizadas
+
+- **Frontend (Extensão Chrome)**  
+  - `manifest.json` (Manifest V3)  
+  - Interface (`popup.html`, `popup.js`, `server.js`)  
+
+- **Backend (Proxy/Servidor)**  
+  - [Node.js](https://nodejs.org/) + [Express](https://expressjs.com/)  
+  - [dotenv](https://www.npmjs.com/package/dotenv)  
+  - [openai (SDK Groq compatível)](https://www.npmjs.com/package/openai)  
+  - [node-fetch](https://www.npmjs.com/package/node-fetch)  
 
 ---
 
 ## Instalação do Backend (Node.js)
 
-1. Certifique-se de ter o **Node.js 18+** instalado.
-2. Execute os comandos abaixo:
+---
 
-```bash
-npm install
-```
+## Crie um arquivo .env dentro da pasta guardiao-proxy com o seguinte conteúdo:
 
-3. Copie o arquivo de ambiente:
+- GROQ_API_KEY=coloque_sua_chave_aqui
+- GROQ_MODEL=llama-3.3-70b-versatile
 
-```bash
-cp .env.example .env
-```
+---
 
-4. Edite o arquivo `.env` com sua chave da API Groq:
+## 🚀 Como rodar o projeto
 
-```env
-GROQ_API_KEY=sua_chave_da_api_groq
-GROQ_MODEL=llama-3.1-8b-instant
-```
+1. Instale as dependências:
+   ```bash
+   npm install
 
-> **Obter chave**: Acesse https://console.groq.com/keys para gerar sua API key
+---
 
-5. Inicie o servidor backend:
-
-```bash
-npm start
-```
-
-> O backend estará disponível em `http://localhost:3000`
+## 🌐 Instalar a extensão no Chrome
+- Abra o navegador Chrome.
+- Vá em chrome://extensions/.
+- Ative o Modo de desenvolvedor.
+- Clique em Carregar sem compactação.
+- Selecione a pasta extensao/.
+- A extensão estará pronta para uso.
 
 ---
 

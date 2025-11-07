@@ -1,10 +1,18 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
+  <head>
 <head>
     <meta charset="UTF-8" />
     <link rel="stylesheet" href="style.css">
     <title>Guardião – Análise</title>
   </head>
+  <body>
+    <header>
+      <h3>Guardião – Análise de Privacidade</h3>
+      <button id="analisar">Analisar</button>
+    </header>
+    <main>
+      <div id="status" class="status">Clique em “Analisar” para começar.</div>
 <body>
   <header>
     <h3>Guardião – Análise de Privacidade</h3>
@@ -19,13 +27,17 @@
   <main>
     <div id="status" class="status">Clique em “Analisar” para começar.</div>
 
-    <div id="resultado">
-      <!-- skeleton inicial -->
-      <div class="card">
-        <div class="sk-line skeleton" style="width: 70%"></div>
-        <div class="sk-line skeleton" style="width: 85%"></div>
-        <div class="sk-line skeleton" style="width: 65%"></div>
+      <div id="resultado">
+        <!-- skeleton inicial -->
+        <div class="card">
+          <div class="sk-line skeleton" style="width: 70%"></div>
+          <div class="sk-line skeleton" style="width: 85%"></div>
+          <div class="sk-line skeleton" style="width: 65%"></div>
+        </div>
       </div>
+    </main>
+    <script src="popup.js"></script>
+  </body>
     </div>
 
     <section id="historico" class="card" hidden>
