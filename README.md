@@ -150,6 +150,13 @@ Analisador-de-pol-ticas/
 
 ---
 
+##Integrantes
+
+- João Vitor Berger 
+- Wenner Roberto de Almeida Santos
+- Pierre Perotti Martins
+- Lucas Rodrigues Gomes
+
 ## Licença
 
 Este projeto está licenciado sob a ISC License.
