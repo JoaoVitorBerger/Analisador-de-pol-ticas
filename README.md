@@ -33,24 +33,7 @@ O projeto utiliza **IA (Groq LLM)** para interpretar o texto e gerar um resumo c
 
 ---
 
-## 📂 Estrutura do Projeto
-
-Analisador-de-pol-ticas/
-- |
-- ├── 📂 extensao/
-- │ ├── 📄 manifest.json
-- │ ├── 📄 popup.html
-- │ └── 📄 popup.js
-- │
-- ├── 📂 node_modules/ 
-- │
-- ├── 📄 .env # Variáveis de ambiente
-- ├── 📄 .gitignore 
-- ├── 📄 package-lock.json 
-- ├── 📄 package.json 
-- ├── 📄 README.md 
-- └── 📄 server.js 
-- │
+## Instalação do Backend (Node.js)
 
 ---
 
@@ -79,37 +62,92 @@ Analisador-de-pol-ticas/
 
 ---
 
-## Inicie o servidor:
+## Carregando a Extensão no Navegador
 
-- node server.js
-
----
-
-## O QUE VAI SER APRESENTADO
-
-- 📄 Dados coletados
-- 🔒 Dados sensíveis
-- 📡 Rastreamento do usuário
-- 🔁 Compartilhamento de dados
-- ⚠️ Nível de intrusividade (nota e classificação)
+1. Acesse `chrome://extensions/` (ou `edge://extensions/` no Edge).
+2. Ative o **Modo do Desenvolvedor**.
+3. Clique em **"Carregar sem compactação"**.
+4. Selecione a pasta `extensao/` dentro do projeto clonado.
+5. A extensão aparecerá na barra do navegador.
 
 ---
 
-⚠️ Ponto de Atenção
+## Como Usar
 
-- O analisador possui uma limitação relacionada ao uso da API do GROG.
-  - Atente-se aos seguintes pontos:
+### Análise Básica
+1. Navegue até uma página com política de privacidade
+2. Clique no ícone do Guardião no navegador
+3. Pressione **"Analisar"**
+4. Aguarde os resultados com taxa de intrusividade
 
-    - 🔹 Limite de Tokens: Ao utilizar uma API Key gratuita, há um limite diário de tokens disponíveis. Caso esse limite seja ultrapassado, o terminal exibirá uma mensagem de erro, informando que o número máximo de tokens foi excedido.
-
-    - 💳 Solução 1 — API Paga: Para ampliar o limite diário de tokens e permitir a análise de textos maiores sem interrupções, recomenda-se utilizar uma API Key paga.
-
-    - ⚙️ Solução 2 — Ajuste de Código: Outra alternativa é reduzir o tamanho máximo de caracteres por bloco diretamente no código. Dessa forma, o consumo de tokens por requisição será menor, diminuindo as chances de atingir o limite diário.
+### Funcionalidades Avançadas
+- **Histórico**: Após múltiplas análises, clique em itens do histórico para rever resultados anteriores
+- **Exportação**: Use **"Copiar"** para colar JSON em documentos ou **"Baixar"** para salvar arquivo
+- **Tema**: Clique em **"Tema"** para alternar entre claro e escuro
+- **Configuração**: Clique em **"Config"** para alterar URL do backend se necessário
 
 ---
 
-## 📡 Como funciona
-- O content script coleta o texto da página.
-- O texto é enviado ao servidor Node.js (/analyze).
-- O servidor chama a API Groq para análise.
-- O resultado (JSON estruturado) é exibido no popup da extensão.
+## Como Funciona
+
+- A extensão coleta o texto da página (`document.body.innerText`).
+- Envia o conteúdo ao backend configurável.
+- O backend analisa com a API da **Groq** usando modelo Llama 3.1.
+- A resposta é exibida no popup da extensão com seções amigáveis e organizadas.
+- Resultados são salvos automaticamente no histórico por domínio.
+
+---
+
+## Verificação e Debug
+
+### Verificar Backend
+Acesse `http://localhost:3000/health` para confirmar configuração:
+
+```json
+{
+  "ok": true,
+  "groq_key_present": true,
+  "groq_key_length": 48,
+  "model": "llama-3.1-8b-instant"
+}
+```
+
+### Problemas Comuns
+- **Erro 401 da Groq**: Verifique se `GROQ_API_KEY` está correta no `.env`
+- **Análises com 0%**: Reinicie o servidor após atualizar o `.env`
+- **Extensão não responde**: Verifique se o backend está rodando e a URL configurada
+
+---
+
+## Estrutura do Projeto
+
+```
+Analisador-de-pol-ticas/
+├── extensao/              # Arquivos da extensão Chrome
+│   ├── manifest.json      # Permissões e configurações
+│   ├── popup.html         # Interface principal
+│   ├── popup.js           # Lógica da interface
+│   └── style.css          # Estilos e tema escuro
+├── server.js              # Backend Node.js + Express
+├── package.json           # Dependências e scripts
+├── .env.example           # Template de variáveis de ambiente
+├── .gitignore             # Arquivos ignorados pelo Git
+└── docs/                  # Documentação adicional
+    └── Apresentacao-branch.md
+```
+
+---
+
+## Tecnologias Utilizadas
+
+- **Frontend**: HTML5, CSS3, JavaScript (ES6+)
+- **Backend**: Node.js, Express.js
+- **IA**: Groq API (Llama 3.1 8B Instant)
+- **Armazenamento**: Chrome Storage API (sync + local)
+- **Estilização**: CSS Variables para temas
+
+---
+
+## Licença
+
+Este projeto está licenciado sob a ISC License.
