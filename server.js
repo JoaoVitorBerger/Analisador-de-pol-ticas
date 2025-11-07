@@ -16,7 +16,7 @@ app.use(cors());
 // Aproximação padrão: ~4 caracteres ≈ 1 token.
 // Mantemos uma margem (OVERHEAD_TOKENS) para o próprio prompt e variações do modelo.
 const TOKEN_LIMIT        = 6000;   // total (entrada + saída)
-const MAX_OUTPUT_TOKENS  = 300;    // teto para a RESPOSTA do modelo
+const MAX_OUTPUT_TOKENS  = 800;    // teto para a RESPOSTA do modelo (aumentado)
 const OVERHEAD_TOKENS    = 400;    // margem p/ prompt/headers/variações
 const CHAR_PER_TOKEN     = 4;      // estimativa 1 token ~ 4 chars
 
@@ -126,6 +126,11 @@ app.post("/analisar", async (req, res) => {
     const { texto } = req.body;
     if (!texto) return res.status(400).json({ erro: "Texto não recebido" });
 
+    if (!process.env.GROQ_API_KEY) {
+      console.error("Falta GROQ_API_KEY no .env");
+      return res.status(500).json({ erro: "Configuração ausente: GROQ_API_KEY" });
+    }
+
     // 1) Ajusta o texto para caber no orçamento de ENTRADA
     const textoAjustado = fitTextToBudget(texto);
 
@@ -133,6 +138,9 @@ app.post("/analisar", async (req, res) => {
     const prompt = promptCompacto(textoAjustado);
 
     // 3) Chama Groq com limite de saída (MAX_OUTPUT_TOKENS)
+    const keyInfo = `${(process.env.GROQ_API_KEY || "").slice(0,4)}*** (len=${(process.env.GROQ_API_KEY||"").length})`;
+    console.log("Groq call -> model:", process.env.GROQ_MODEL || "llama-3.1-8b-instant", "key:", keyInfo);
+    
     const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -145,19 +153,25 @@ app.post("/analisar", async (req, res) => {
         temperature: 0.1,
         top_p: 0.3,
         max_tokens: MAX_OUTPUT_TOKENS, // <-- saída limitada
-        stop: ["```", "\n\n\n"],
       }),
     });
+
+    if (!response.ok) {
+      const txt = await response.text();
+      console.error("Groq HTTP error:", response.status, txt.slice(0, 500));
+      return res.status(502).json({ erro: "Falha na API Groq", status: response.status });
+    }
 
     const data = await response.json();
 
     if (data?.error) {
-      // Em caso de erro da API, retornamos estrutura vazia normalizada
       console.warn("Groq error:", data.error);
-      return res.json(normalizarPII({}));
+      return res.status(502).json({ erro: "Erro da API Groq", detalhe: data.error });
     }
 
     const content = data?.choices?.[0]?.message?.content || "";
+    console.log("Groq content preview:", (content || "").slice(0, 200));
+    
     const json = extrairJSON(content) || {};
     const final = normalizarPII(json);
     return res.json(final);
@@ -165,6 +179,13 @@ app.post("/analisar", async (req, res) => {
     console.error(e);
     return res.status(500).json({ erro: "Erro na análise" });
   }
+});
+
+app.get("/health", (req, res) => {
+  const hasKey = !!process.env.GROQ_API_KEY;
+  const keyLen = (process.env.GROQ_API_KEY || "").length;
+  const model = process.env.GROQ_MODEL || "llama-3.1-8b-instant";
+  res.json({ ok: true, groq_key_present: hasKey, groq_key_length: keyLen, model });
 });
 
 app.listen(3000, () => {
