@@ -15,7 +15,7 @@ O projeto utiliza **IA (Groq LLM)** para interpretar o texto e gerar um resumo c
   - Percentual estimado de uso intensivo de dados pessoais.  
 - ✅ Interface simples via **popup** da extensão.  
 - ✅ API local em **Node.js + Express** para processar as análises.  
-- ✅ Uso do modelo **LLaMA (Groq API)** para interpretação.
+- ✅ Uso do modelo **Gemini 2.5-Flash** para interpretação.
 
 ---
 
@@ -28,7 +28,6 @@ O projeto utiliza **IA (Groq LLM)** para interpretar o texto e gerar um resumo c
 - **Backend (Proxy/Servidor)**  
   - [Node.js](https://nodejs.org/) + [Express](https://expressjs.com/)  
   - [dotenv](https://www.npmjs.com/package/dotenv)  
-  - [openai (SDK Groq compatível)](https://www.npmjs.com/package/openai)  
   - [node-fetch](https://www.npmjs.com/package/node-fetch)  
 
 ---
@@ -39,8 +38,8 @@ O projeto utiliza **IA (Groq LLM)** para interpretar o texto e gerar um resumo c
 
 ## Crie um arquivo .env dentro da pasta guardiao-proxy com o seguinte conteúdo:
 
-- GROQ_API_KEY=coloque_sua_chave_aqui
-- GROQ_MODEL=llama-3.3-70b-versatile
+- GEMINI_API_KEY=coloque_sua_chave_aqui
+- GEMINI_MODEL=gemini-2.5-flash
 
 ---
 
@@ -80,11 +79,6 @@ O projeto utiliza **IA (Groq LLM)** para interpretar o texto e gerar um resumo c
 3. Pressione **"Analisar"**
 4. Aguarde os resultados com taxa de intrusividade
 
-### Funcionalidades Avançadas
-- **Histórico**: Após múltiplas análises, clique em itens do histórico para rever resultados anteriores
-- **Exportação**: Use **"Copiar"** para colar JSON em documentos ou **"Baixar"** para salvar arquivo
-- **Tema**: Clique em **"Tema"** para alternar entre claro e escuro
-- **Configuração**: Clique em **"Config"** para alterar URL do backend se necessário
 
 ---
 
@@ -92,30 +86,9 @@ O projeto utiliza **IA (Groq LLM)** para interpretar o texto e gerar um resumo c
 
 - A extensão coleta o texto da página (`document.body.innerText`).
 - Envia o conteúdo ao backend configurável.
-- O backend analisa com a API da **Groq** usando modelo Llama 3.1.
+- O backend analisa com a API da **Gemini** usando modelo Flash 2.5.
 - A resposta é exibida no popup da extensão com seções amigáveis e organizadas.
-- Resultados são salvos automaticamente no histórico por domínio.
-
----
-
-## Verificação e Debug
-
-### Verificar Backend
-Acesse `http://localhost:3000/health` para confirmar configuração:
-
-```json
-{
-  "ok": true,
-  "groq_key_present": true,
-  "groq_key_length": 48,
-  "model": "llama-3.1-8b-instant"
-}
-```
-
-### Problemas Comuns
-- **Erro 401 da Groq**: Verifique se `GROQ_API_KEY` está correta no `.env`
-- **Análises com 0%**: Reinicie o servidor após atualizar o `.env`
-- **Extensão não responde**: Verifique se o backend está rodando e a URL configurada
+-
 
 ---
 
@@ -142,7 +115,7 @@ Analisador-de-pol-ticas/
 
 - **Frontend**: HTML5, CSS3, JavaScript (ES6+)
 - **Backend**: Node.js, Express.js
-- **IA**: Groq API (Llama 3.1 8B Instant)
+- **IA**: Gemini 2.5-flash
 - **Armazenamento**: Chrome Storage API (sync + local)
 - **Estilização**: CSS Variables para temas
 
