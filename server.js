@@ -40,13 +40,26 @@ function normalizarPII(obj = {}) {
   const dados_sensiveis = clampArr(obj.dados_sensiveis, 6, 50);
   const rastreamento = clampArr(obj.rastreamento, 6, 50);
   const compartilhamento = clampArr(obj.compartilhamento, 5, 50);
-  const nota = Number(obj?.intrusividade?.nota);
+    // Se o modelo não trouxer a nota, calculamos com a mesma regra do prompt
+  const calcNota = () => {
+    const n =
+      Math.min(dados_coletados.length * 5, 30) +
+      Math.min(dados_sensiveis.length * 8, 40) +
+      Math.min(rastreamento.length * 4, 20) +
+      Math.min(compartilhamento.length * 2, 10);
+    return Math.max(0, Math.min(100, n));
+  };
+
+  const nota = Number(obj?.intrusividade?.nota ?? calcNota());
+  const nivel = nota <= 33 ? "baixo" : nota <= 66 ? "medio" : "alto";
+
+
   return {
     dados_coletados,
     dados_sensiveis,
     rastreamento,
     compartilhamento,
-    intrusividade: {nota},
+    intrusividade: {nota,nivel},
   };
 }
 
@@ -106,7 +119,6 @@ app.post("/analisar", async (req, res) => {
         body: JSON.stringify({
           contents: [
             {
-              role: "user",
               parts: [{ text: prompt }]
             }
           ],
@@ -119,13 +131,14 @@ app.post("/analisar", async (req, res) => {
     );
     const data = await response.json();
 
+    console.log(data)
     if (!data?.candidates?.length) {
       // Em caso de erro da API, retornamos estrutura vazia normalizada
       console.warn("Gemini error:", data.error);
       return res.json(normalizarPII({}));
     }
 
-    const content = data?.choices?.[0]?.message?.content || "";
+    const content = data.candidates[0].content.parts[0].text || "";
     const json = extrairJSON(content) || {};
     const final = normalizarPII(json);
     return res.json(final);
