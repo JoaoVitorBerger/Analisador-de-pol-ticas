@@ -32,7 +32,25 @@ O projeto utiliza **IA (Groq LLM)** para interpretar o texto e gerar um resumo c
 
 ---
 
+## Clonando o Projeto
+
+Clone o projeto diretamente na branch `develop`:
+
+```bash
+git clone -b develop --single-branch https://github.com/JoaoVitorBerger/Analisador-de-pol-ticas.git
+cd Analisador-de-pol-ticas
+```
+
+---
+
 ## Instalação do Backend (Node.js)
+
+1. Certifique-se de ter o **Node.js 18+** instalado.
+2. Execute os comandos abaixo:
+
+```bash
+npm install
+```
 
 ---
 
