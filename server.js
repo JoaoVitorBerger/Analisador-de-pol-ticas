@@ -40,26 +40,13 @@ function normalizarPII(obj = {}) {
   const dados_sensiveis = clampArr(obj.dados_sensiveis, 6, 50);
   const rastreamento = clampArr(obj.rastreamento, 6, 50);
   const compartilhamento = clampArr(obj.compartilhamento, 5, 50);
-
-  // Se o modelo não trouxer a nota, calculamos com a mesma regra do prompt
-  const calcNota = () => {
-    const n =
-      Math.min(dados_coletados.length * 5, 30) +
-      Math.min(dados_sensiveis.length * 8, 40) +
-      Math.min(rastreamento.length * 4, 20) +
-      Math.min(compartilhamento.length * 2, 10);
-    return Math.max(0, Math.min(100, n));
-  };
-
-  const nota = Number(obj?.intrusividade?.nota ?? calcNota());
-  const nivel = nota <= 33 ? "baixo" : nota <= 66 ? "medio" : "alto";
-
+  const nota = Number(obj?.intrusividade?.nota);
   return {
     dados_coletados,
     dados_sensiveis,
     rastreamento,
     compartilhamento,
-    intrusividade: { nota, nivel },
+    intrusividade: {nota},
   };
 }
 
@@ -103,13 +90,11 @@ app.post("/analisar", async (req, res) => {
     const { texto } = req.body;
     if (!texto) return res.status(400).json({ erro: "Texto não recebido" });
 
-    if (!process.env.GROQ_API_KEY) {
-      console.error("Falta GROQ_API_KEY no .env");
-      return res.status(500).json({ erro: "Configuração ausente: GROQ_API_KEY" });
+    if (!process.env.GEMINI_API_KEY) {
+      console.error("Falta GEMINI_API_KEY no .env");
+      return res.status(500).json({ erro: "Configuração ausente: GEMINI_API_KEY" });
     }
 
-    // 1) Ajusta o texto para caber no orçamento de ENTRADA
-    // 2) Monta prompt (curto) com o texto já ajustado
     console.log(texto)
     const prompt = promptCompacto(texto);
 
@@ -148,13 +133,6 @@ app.post("/analisar", async (req, res) => {
     console.error(e);
     return res.status(500).json({ erro: "Erro na análise" });
   }
-});
-
-app.get("/health", (req, res) => {
-  const hasKey = !!process.env.GROQ_API_KEY;
-  const keyLen = (process.env.GROQ_API_KEY || "").length;
-  const model = process.env.GROQ_MODEL || "llama-3.1-8b-instant";
-  res.json({ ok: true, groq_key_present: hasKey, groq_key_length: keyLen, model });
 });
 
 app.listen(3000, () => {
