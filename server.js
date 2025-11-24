@@ -10,31 +10,7 @@ const app = express();
 app.use(express.json({ limit: "1mb" }));
 app.use(cors());
 
-// =========================
-// Limites de tokens por REQUISIÇÃO (rigor: <= 6000)
-// =========================
-// Aproximação padrão: ~4 caracteres ≈ 1 token.
-// Mantemos uma margem (OVERHEAD_TOKENS) para o próprio prompt e variações do modelo.
-const TOKEN_LIMIT        = 6000;   // total (entrada + saída)
-const MAX_OUTPUT_TOKENS  = 300;    // teto para a RESPOSTA do modelo
-const OVERHEAD_TOKENS    = 400;    // margem p/ prompt/headers/variações
-const CHAR_PER_TOKEN     = 4;      // estimativa 1 token ~ 4 chars
 
-// Orçamento para a ENTRADA (prompt + texto do usuário)
-// Observação: o prompt também consome tokens, por isso somamos OVERHEAD_TOKENS e reservamos MAX_OUTPUT_TOKENS.
-const INPUT_TOKEN_BUDGET = Math.max(100, TOKEN_LIMIT - MAX_OUTPUT_TOKENS - OVERHEAD_TOKENS);
-const INPUT_CHAR_BUDGET  = INPUT_TOKEN_BUDGET * CHAR_PER_TOKEN;
-
-// =========================
-// Utils
-// =========================
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-
-function fitTextToBudget(texto) {
-  if (!texto) return "";
-  // corta o texto para caber no orçamento de ENTRADA (em chars)
-  return texto.slice(0, INPUT_CHAR_BUDGET);
-}
 
 // Remove cercas ```json e extrai o primeiro JSON válido
 function extrairJSON(texto) {
@@ -60,9 +36,9 @@ function clampArr(a, n = 6, itemMax = 50) {
 
 // Normaliza para o payload compacto desejado
 function normalizarPII(obj = {}) {
-  const dados_coletados  = clampArr(obj.dados_coletados, 6, 50);
-  const dados_sensiveis  = clampArr(obj.dados_sensiveis, 6, 50);
-  const rastreamento     = clampArr(obj.rastreamento, 6, 50);
+  const dados_coletados = clampArr(obj.dados_coletados, 6, 50);
+  const dados_sensiveis = clampArr(obj.dados_sensiveis, 6, 50);
+  const rastreamento = clampArr(obj.rastreamento, 6, 50);
   const compartilhamento = clampArr(obj.compartilhamento, 5, 50);
 
   // Se o modelo não trouxer a nota, calculamos com a mesma regra do prompt
@@ -97,16 +73,17 @@ Extraia APENAS o que o texto afirmar explicitamente. NÃO invente.
 
 Esquema e limites:
 {
-  "dados_coletados": ["máx. 6 itens curtos — ex.: nome completo, e-mail, endereço, telefone, data de nascimento, CPF/SSN"],
-  "dados_sensiveis": ["máx. 6 — ex.: saúde, biometria, religião, orientação sexual, dados financeiros, geolocalização precisa"],
-  "rastreamento": ["máx. 6 — ex.: IP, cookies, device ID, fingerprint, ad ID, SDK/PIXEL de terceiros"],
-  "compartilhamento": ["máx. 5 — ex.: anunciantes, analytics, afiliadas, provedores de nuvem, autoridades"],
+  "dados_coletados": ["máx. 6 itens curtos — ex.: Quais dados estão sendo coletados sem a permissão do usuario"],
+  "dados_sensiveis": ["máx. 6 — ex.: Quais dados são coletados com a permissão do usuario"],
+  "rastreamento": ["máx. 6 — ex.: Os tipos de rastreadores utilizados pela página"],
+  "compartilhamento": ["máx. 5 — ex.: Tipo de anunciante que os dados são repassados"],
   "intrusividade": { "nota": 0-100, "nivel": "baixo" | "medio" | "alto" }
 }
 
 Regras de extração:
 - Inclua um item SÓ se houver menção clara no trecho (sinônimos contam, ex.: “identificador do dispositivo” = device ID).
 - Se não houver citação explícita, deixe a lista vazia [].
+- No trecho de esquema e limites, utilize palavras chave para informar quais informações estão sendo extraídas do usuário e evite textos longos.
 
 Como calcular "intrusividade.nota" (clamp 0..100):
 - Baseie-se APENAS no trecho.
@@ -127,37 +104,38 @@ app.post("/analisar", async (req, res) => {
     if (!texto) return res.status(400).json({ erro: "Texto não recebido" });
 
     // 1) Ajusta o texto para caber no orçamento de ENTRADA
-    const textoAjustado = fitTextToBudget(texto);
-
     // 2) Monta prompt (curto) com o texto já ajustado
-    const prompt = promptCompacto(textoAjustado);
+    console.log(texto)
+    const prompt = promptCompacto(texto);
 
-    // 3) Chama Groq com limite de saída (MAX_OUTPUT_TOKENS)
-    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${process.env.GROQ_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: process.env.GROQ_MODEL || "llama-3.1-8b-instant",
-        messages: [{ role: "user", content: prompt }],
-        temperature: 0.1,
-        top_p: 0.3,
-        max_tokens: MAX_OUTPUT_TOKENS, // <-- saída limitada
-        stop: ["```", "\n\n\n"],
-      }),
-    });
-
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${process.env.GEMINI_MODEL}:generateContent?key=${process.env.GEMINI_API_KEY}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [
+            {
+              role: "user",
+              parts: [{ text: prompt }]
+            }
+          ],
+          generationConfig: {
+            temperature: 0.1,
+            topP: 0.3,
+          }
+        })
+      }
+    );
     const data = await response.json();
 
-    if (data?.error) {
+    if (!data?.candidates?.length) {
       // Em caso de erro da API, retornamos estrutura vazia normalizada
-      console.warn("Groq error:", data.error);
+      console.warn("Gemini error:", data.error);
       return res.json(normalizarPII({}));
     }
 
-    const content = data?.choices?.[0]?.message?.content || "";
+    const content = data.candidates[0].content.parts[0].text || "";
     const json = extrairJSON(content) || {};
     const final = normalizarPII(json);
     return res.json(final);
