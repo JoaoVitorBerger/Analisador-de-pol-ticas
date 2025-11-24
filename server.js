@@ -103,6 +103,11 @@ app.post("/analisar", async (req, res) => {
     const { texto } = req.body;
     if (!texto) return res.status(400).json({ erro: "Texto não recebido" });
 
+    if (!process.env.GROQ_API_KEY) {
+      console.error("Falta GROQ_API_KEY no .env");
+      return res.status(500).json({ erro: "Configuração ausente: GROQ_API_KEY" });
+    }
+
     // 1) Ajusta o texto para caber no orçamento de ENTRADA
     // 2) Monta prompt (curto) com o texto já ajustado
     console.log(texto)
@@ -135,7 +140,7 @@ app.post("/analisar", async (req, res) => {
       return res.json(normalizarPII({}));
     }
 
-    const content = data.candidates[0].content.parts[0].text || "";
+    const content = data?.choices?.[0]?.message?.content || "";
     const json = extrairJSON(content) || {};
     const final = normalizarPII(json);
     return res.json(final);
@@ -143,6 +148,13 @@ app.post("/analisar", async (req, res) => {
     console.error(e);
     return res.status(500).json({ erro: "Erro na análise" });
   }
+});
+
+app.get("/health", (req, res) => {
+  const hasKey = !!process.env.GROQ_API_KEY;
+  const keyLen = (process.env.GROQ_API_KEY || "").length;
+  const model = process.env.GROQ_MODEL || "llama-3.1-8b-instant";
+  res.json({ ok: true, groq_key_present: hasKey, groq_key_length: keyLen, model });
 });
 
 app.listen(3000, () => {
