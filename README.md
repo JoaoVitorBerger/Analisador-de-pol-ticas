@@ -1,7 +1,7 @@
 # 🛡️ Guardião de Termos & Privacidade (IA)
 
 Extensão para navegador que **analisa automaticamente políticas de privacidade e termos de uso** das páginas que você acessa, destacando riscos e práticas de coleta/compartilhamento de dados pessoais.  
-O projeto utiliza **IA (Groq LLM)** para interpretar o texto e gerar um resumo claro e estruturado.
+O projeto utiliza **IA Gemini 2.5-Flash** para interpretar o texto e gerar um resumo claro e estruturado.
 
 ---
 
@@ -29,6 +29,7 @@ O projeto utiliza **IA (Groq LLM)** para interpretar o texto e gerar um resumo c
   - [Node.js](https://nodejs.org/) + [Express](https://expressjs.com/)  
   - [dotenv](https://www.npmjs.com/package/dotenv)  
   - [node-fetch](https://www.npmjs.com/package/node-fetch)  
+  - [Gemini API KEY](https://aistudio.google.com/api-keys)  
 
 ---
 
