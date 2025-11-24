@@ -64,9 +64,9 @@ npm install
 
 ## 🚀 Como rodar o projeto
 
-1. Instale as dependências:
+1. Execute o comando para iniciar o servidor
    ```bash
-   npm install
+   npm start
 
 ---
 
